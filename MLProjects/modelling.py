@@ -5,15 +5,14 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import os
 
-# Set MLflow Tracking URI dan Experiment
-# Ini akan mengarahkan MLflow untuk mencatat ke server lokal
-mlflow.set_tracking_uri("http://127.0.0.1:5001")
-mlflow.set_experiment("Shipping Delay Prediction")
+# Hapus mlflow.set_tracking_uri() dan mlflow.set_experiment() di sini
+# karena MLFLOW_TRACKING_URI sudah diatur di GitHub Actions dan
+# nama eksperimen akan diteruskan via 'mlflow run' CLI.
 
 def train_and_log_model():
     """
-    Melatih model XGBoost dan mencatatnya ke MLflow,
-    sekaligus mendaftarkan model.
+    Melatih model XGBoost dan mencatatnya ke MLflow.
+    MLflow logging akan otomatis terhubung ke run yang dibuat oleh 'mlflow run'.
     """
     print("Memulai proses pelatihan model...")
 
@@ -33,37 +32,39 @@ def train_and_log_model():
         print(f"Error saat memuat dataset: {e}")
         exit(1)
 
-    with mlflow.start_run() as run:
-        mlflow.sklearn.autolog()
+    # Hapus 'with mlflow.start_run() as run:'
+    # MLflow logging functions (log_metric, log_model, autolog)
+    # akan otomatis melampirkan ke run yang aktif yang dibuat oleh 'mlflow run'.
+    mlflow.sklearn.autolog()
 
-        model = XGBClassifier(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=5,
-            use_label_encoder=False,
-            eval_metric='logloss',
-            random_state=42
-        )
-        print("Melatih model XGBoost...")
-        model.fit(X_train, y_train)
-        print("Model berhasil dilatih.")
+    model = XGBClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=5,
+        use_label_encoder=False,
+        eval_metric='logloss',
+        random_state=42
+    )
+    print("Melatih model XGBoost...")
+    model.fit(X_train, y_train)
+    print("Model berhasil dilatih.")
 
-        preds = model.predict(X_test)
-        acc = accuracy_score(y_test, preds)
+    preds = model.predict(X_test)
+    acc = accuracy_score(y_test, preds)
 
-        mlflow.log_metric("accuracy", acc)
-        print(f"Akurasi model: {acc}")
+    mlflow.log_metric("accuracy", acc)
+    print(f"Akurasi model: {acc}")
 
-        model_name = "ShippingDelayXGBoostModel"
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="xgboost_model",
-            registered_model_name=model_name
-        )
-        print(f"Model '{model_name}' berhasil dicatat dan didaftarkan ke MLflow.")
+    model_name = "ShippingDelayXGBoostModel"
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        artifact_path="xgboost_model",
+        registered_model_name=model_name
+    )
+    print(f"Model '{model_name}' berhasil dicatat dan didaftarkan ke MLflow.")
 
-        run_id = run.info.run_id
-        print(f"MLflow Run ID: {run_id}")
+    # run_id = mlflow.active_run().info.run_id # Jika Anda masih ingin mendapatkan run_id
+    # print(f"MLflow Run ID: {run_id}")
 
 if __name__ == "__main__":
     train_and_log_model()
