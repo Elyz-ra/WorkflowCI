@@ -10,6 +10,8 @@ jobs:
   build-and-train:
     runs-on: ubuntu-latest
     environment: Production
+    env: # Global environment variables for this job
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python # Dipindahkan ke sini agar lebih global
 
     steps:
       - name: Checkout Repository
@@ -41,35 +43,32 @@ jobs:
           conda activate mlflow-ci-env
           pip install mlflow==1.23.0
           pip install protobuf==3.20.3 --force-reinstall
+          pip install sqlalchemy
         shell: bash -l {0}
 
       - name: Start MLflow Tracking Server (Local)
         run: |
           conda activate mlflow-ci-env
-          export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-          # PENTING: Menggunakan SQLite database sebagai backend store untuk Model Registry
-          # Ini akan membuat file 'mlruns.db' di direktori kerja
+          # Start server dengan backend SQLite
           mlflow ui --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
-          sleep 5
-          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+          # PENTING: Beri waktu lebih banyak agar server sempat menyala dan siap menerima koneksi
+          sleep 15 # Meningkatkan waktu tunggu dari 5 detik ke 15 detik
         shell: bash -l {0}
 
       - name: Run MLflow Project
         run: |
           conda activate mlflow-ci-env
-          export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+          # modelling.py akan mengatur MLFLOW_TRACKING_URI secara programatis.
+          # Kita tetap passing --experiment-name dari CLI.
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
 
       - name: Get latest MLflow run_id
         id: get_run_id
         run: |
-          # Untuk mendapatkan run_id, kita perlu query dari server MLflow
-          # karena backend sekarang adalah database.
-          # Asumsikan eksperimen "Shipping Delay Prediction" ada dan kita ambil run terakhir
           conda activate mlflow-ci-env
-          export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001" # Pastikan URI disetel
+          # Pastikan MLFLOW_TRACKING_URI disetel untuk CLI.
+          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
@@ -78,13 +77,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-run-artifacts-${{ github.run_id }}
-          # Path artefak akan tetap di direktori mlruns karena kita set --default-artifact-root
           path: mlruns/${{ steps.get_run_id.outputs.latest_run_id }}/artifacts/
 
       - name: Build Docker Model
         run: |
           conda activate mlflow-ci-env
-          export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
         shell: bash -l {0}
 
