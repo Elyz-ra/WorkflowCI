@@ -20,34 +20,35 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: 3.9 
+          miniconda-version: "latest"
+          auto-activate-base: false 
+          channels: conda-forge,defaults
+
       - name: Check Env
         run: |
           python --version
+          conda --version # Cek apakah conda sudah terinstal
           pip --version
 
-      - name: Install dependencies
+      - name: Install dependencies (Conda Environment)
         run: |
-          pip install mlflow==1.23.0
-          pip install conda
           conda env create -f MLProject/conda.yaml
-
-      - name: Start MLflow Tracking Server (Local) # LANGKAH BARU INI!
-        run: |
-          # Aktifkan environment Conda
-          source ~/.bashrc
           conda activate mlflow-ci-env
-          # Mulai MLflow UI di background, menggunakan direktori mlruns lokal
-          # Perhatikan '&' di akhir untuk menjalankan di background
+          pip install mlflow==1.23.0 # Pastikan mlflow juga terinstal di environment proyek
+
+      - name: Start MLflow Tracking Server (Local)
+        run: |
+          conda activate mlflow-ci-env
           mlflow ui --host 127.0.0.1 --port 5001 --backend-store-uri ./mlruns &
-          # Beri waktu sebentar agar server sempat menyala
           sleep 5
-          # Atur MLFLOW_TRACKING_URI sebagai environment variable untuk langkah selanjutnya
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
 
       - name: Run MLflow Project
         run: |
-          # Perintah ini akan menggunakan MLFLOW_TRACKING_URI yang sudah diexport di langkah sebelumnya
-          source ~/.bashrc
           conda activate mlflow-ci-env
           mlflow run MLProject -e main
 
@@ -58,14 +59,13 @@ jobs:
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
 
       - name: Save MLflow Run Data as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: mlflow-run-artifacts-${{ github.run_id }}
           path: mlruns/${{ steps.get_run_id.outputs.latest_run_id }}/artifacts/
 
       - name: Build Docker Model
         run: |
-          source ~/.bashrc
           conda activate mlflow-ci-env
           mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
 
