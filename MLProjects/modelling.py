@@ -5,6 +5,11 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import os
 
+# Set MLflow Tracking URI dan Experiment
+# Ini akan mengarahkan MLflow untuk mencatat ke server lokal
+mlflow.set_tracking_uri("http://127.0.0.1:5001")
+mlflow.set_experiment("Shipping Delay Prediction")
+
 def train_and_log_model():
     """
     Melatih model XGBoost dan mencatatnya ke MLflow,
@@ -12,15 +17,12 @@ def train_and_log_model():
     """
     print("Memulai proses pelatihan model...")
 
-    # Pastikan direktori dataset ada
-    # Dalam konteks GitHub Actions, pastikan folder ini ada di root MLProject
     data_path = "ecommerce_shipping_data_preprocessed"
     if not os.path.exists(data_path):
         print(f"Error: Direktori data '{data_path}' tidak ditemukan.")
         print("Pastikan folder 'ecommerce_shipping_data_preprocessed' berisi file CSV Anda.")
         exit(1)
 
-    # Load dataset yang sudah di-preprocessing
     try:
         X_train = pd.read_csv(os.path.join(data_path, "X_train.csv"))
         X_test = pd.read_csv(os.path.join(data_path, "X_test.csv"))
@@ -32,10 +34,8 @@ def train_and_log_model():
         exit(1)
 
     with mlflow.start_run() as run:
-        # Mengaktifkan autologging untuk sklearn (termasuk XGBoost)
         mlflow.sklearn.autolog()
 
-        # Inisialisasi dan latih model XGBoost
         model = XGBClassifier(
             n_estimators=100,
             learning_rate=0.1,
@@ -48,16 +48,12 @@ def train_and_log_model():
         model.fit(X_train, y_train)
         print("Model berhasil dilatih.")
 
-        # Prediksi dan evaluasi
         preds = model.predict(X_test)
         acc = accuracy_score(y_test, preds)
 
-        # Mencatat metrik akurasi
         mlflow.log_metric("accuracy", acc)
         print(f"Akurasi model: {acc}")
 
-        # Secara eksplisit mencatat model dan mendaftarkannya
-        # Ini penting agar `mlflow models build-docker` dapat menemukan model yang terdaftar
         model_name = "ShippingDelayXGBoostModel"
         mlflow.sklearn.log_model(
             sk_model=model,
