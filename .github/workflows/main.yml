@@ -59,7 +59,7 @@ jobs:
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
 
       - name: Save MLflow Run Data as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mlflow-run-artifacts-${{ github.run_id }}
           path: mlruns/${{ steps.get_run_id.outputs.latest_run_id }}/artifacts/
