@@ -5,10 +5,6 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import os
 
-# PENTING: Mengatur Tracking URI di sini untuk memastikan koneksi ke MLflow server
-# Ini diperlukan agar Model Registry berfungsi dengan backend SQLite.
-mlflow.set_tracking_uri("http://127.0.0.1:5001")
-# Tidak perlu mlflow.set_experiment() di sini karena akan diteruskan oleh 'mlflow run' CLI
 
 def train_and_log_model():
     """
