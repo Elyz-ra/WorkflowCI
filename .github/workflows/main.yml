@@ -41,7 +41,9 @@ jobs:
         run: |
           conda env create -f MLProjects/conda.yaml
           conda activate mlflow-ci-env
-          pip install mlflow==1.25.0 # Diperbarui ke MLflow 1.25.0
+          # PENTING: Perbarui setuptools dan wheel terlebih dahulu untuk menghindari konflik distutils
+          pip install --upgrade setuptools wheel
+          pip install mlflow==1.25.0
           pip install protobuf==3.20.3 --force-reinstall
           pip install sqlalchemy
         shell: bash -l {0}
@@ -81,7 +83,6 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-          # Perintah 'search runs' seharusnya sekarang berfungsi dengan MLflow 1.25.0
           LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
