@@ -5,9 +5,10 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import os
 
-# Hapus mlflow.set_tracking_uri() dan mlflow.set_experiment() di sini
-# karena MLFLOW_TRACKING_URI sudah diatur di GitHub Actions dan
-# nama eksperimen akan diteruskan via 'mlflow run' CLI.
+# PENTING: Mengatur Tracking URI di sini untuk memastikan koneksi ke MLflow server
+# Ini diperlukan agar Model Registry berfungsi dengan backend SQLite.
+mlflow.set_tracking_uri("http://127.0.0.1:5001")
+# Tidak perlu mlflow.set_experiment() di sini karena akan diteruskan oleh 'mlflow run' CLI
 
 def train_and_log_model():
     """
@@ -32,7 +33,6 @@ def train_and_log_model():
         print(f"Error saat memuat dataset: {e}")
         exit(1)
 
-    # Hapus 'with mlflow.start_run() as run:'
     # MLflow logging functions (log_metric, log_model, autolog)
     # akan otomatis melampirkan ke run yang aktif yang dibuat oleh 'mlflow run'.
     mlflow.sklearn.autolog()
@@ -62,9 +62,6 @@ def train_and_log_model():
         registered_model_name=model_name
     )
     print(f"Model '{model_name}' berhasil dicatat dan didaftarkan ke MLflow.")
-
-    # run_id = mlflow.active_run().info.run_id # Jika Anda masih ingin mendapatkan run_id
-    # print(f"MLflow Run ID: {run_id}")
 
 if __name__ == "__main__":
     train_and_log_model()
