@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env: # Global environment variables for this job
-      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
+      # MLFLOW_TRACKING_URI akan diatur di modelling.py
+      # MLFLOW_REGISTRY_URI akan diexport di setiap langkah run yang memerlukannya
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python # Untuk mengatasi isu protobuf
 
     steps:
       - name: Checkout Repository
@@ -49,34 +51,33 @@ jobs:
       - name: Start MLflow Tracking Server (Local)
         run: |
           conda activate mlflow-ci-env
-          # Start server dengan backend SQLite di background
-          mlflow ui --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
+          # PENTING: Menggunakan 'mlflow server' dan set backend SQLite
+          # Ini akan membuat file 'mlruns.db' di direktori kerja
+          mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
           
-          echo "Waiting for MLflow UI to start..."
-          # PENTING: Mekanisme polling untuk menunggu MLflow UI aktif
+          echo "Waiting for MLflow Server to start..."
+          # Mekanisme polling untuk menunggu MLflow Server aktif
           timeout_seconds=60 # Total waktu tunggu maksimum (60 detik)
           start_time=$(date +%s)
           while ! curl -s http://127.0.0.1:5001 > /dev/null; do
             current_time=$(date +%s)
             elapsed=$((current_time - start_time))
             if [ "$elapsed" -ge "$timeout_seconds" ]; then
-              echo "MLflow UI did not start within $timeout_seconds seconds."
+              echo "MLflow Server did not start within $timeout_seconds seconds."
               exit 1
             fi
-            echo "MLflow UI not yet ready. Waiting 5 seconds..."
+            echo "MLflow Server not yet ready. Waiting 5 seconds..."
             sleep 5
           done
-          echo "MLflow UI is running and ready!"
-
-          # Export URI setelah server pasti berjalan
-          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+          echo "MLflow Server is running and ready!"
         shell: bash -l {0}
 
       - name: Run MLflow Project
         run: |
           conda activate mlflow-ci-env
-          # modelling.py akan mengatur MLFLOW_TRACKING_URI secara programatis.
-          # Kita tetap passing --experiment-name dari CLI.
+          # PENTING: Set MLFLOW_TRACKING_URI dan MLFLOW_REGISTRY_URI secara eksplisit di sini
+          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+          export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
 
@@ -84,8 +85,9 @@ jobs:
         id: get_run_id
         run: |
           conda activate mlflow-ci-env
+          # PENTING: Set MLFLOW_TRACKING_URI dan MLFLOW_REGISTRY_URI secara eksplisit di sini
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
-          # Tambahkan 'jq' jika belum ada, biasanya sudah ada di Ubuntu
+          export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
           LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
@@ -99,7 +101,9 @@ jobs:
       - name: Build Docker Model
         run: |
           conda activate mlflow-ci-env
+          # PENTING: Set MLFLOW_TRACKING_URI dan MLFLOW_REGISTRY_URI secara eksplisit di sini
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+          export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
           mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
         shell: bash -l {0}
 
