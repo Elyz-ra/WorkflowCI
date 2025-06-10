@@ -40,6 +40,8 @@ jobs:
           conda env create -f MLProjects/conda.yaml
           conda activate mlflow-ci-env
           pip install mlflow==1.23.0
+          # PENTING: Paksa instal protobuf versi yang kompatibel setelah mlflow
+          pip install protobuf==3.20.3 --force-reinstall
         shell: bash -l {0}
 
       - name: Start MLflow Tracking Server (Local)
@@ -68,7 +70,7 @@ jobs:
         shell: bash -l {0}
 
       - name: Save MLflow Run Data as Artifact
-        uses: actions/upload-artifact@v4 # Diperbarui ke v4
+        uses: actions/upload-artifact@v4
         with:
           name: mlflow-run-artifacts-${{ github.run_id }}
           path: mlruns/${{ steps.get_run_id.outputs.latest_run_id }}/artifacts/
