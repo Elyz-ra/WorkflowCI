@@ -79,7 +79,7 @@ jobs:
         run: |
           conda activate mlflow-ci-env
           mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
-        shell: bash -l {0} 
+        shell: bash -l {0} # PENTING: Gunakan login shell
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
