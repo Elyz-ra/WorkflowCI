@@ -11,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env: # Global environment variables for this job
-      # MLFLOW_TRACKING_URI akan diatur di modelling.py
-      # MLFLOW_REGISTRY_URI akan diexport di setiap langkah run yang memerlukannya
       PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python # Untuk mengatasi isu protobuf
 
     steps:
@@ -43,7 +41,7 @@ jobs:
         run: |
           conda env create -f MLProjects/conda.yaml
           conda activate mlflow-ci-env
-          pip install mlflow==1.23.0
+          pip install mlflow==1.25.0 # Diperbarui ke MLflow 1.25.0
           pip install protobuf==3.20.3 --force-reinstall
           pip install sqlalchemy
         shell: bash -l {0}
@@ -51,13 +49,10 @@ jobs:
       - name: Start MLflow Tracking Server (Local)
         run: |
           conda activate mlflow-ci-env
-          # PENTING: Menggunakan 'mlflow server' dan set backend SQLite
-          # Ini akan membuat file 'mlruns.db' di direktori kerja
           mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
           
           echo "Waiting for MLflow Server to start..."
-          # Mekanisme polling untuk menunggu MLflow Server aktif
-          timeout_seconds=60 # Total waktu tunggu maksimum (60 detik)
+          timeout_seconds=60
           start_time=$(date +%s)
           while ! curl -s http://127.0.0.1:5001 > /dev/null; do
             current_time=$(date +%s)
@@ -75,7 +70,6 @@ jobs:
       - name: Run MLflow Project
         run: |
           conda activate mlflow-ci-env
-          # PENTING: Set MLFLOW_TRACKING_URI dan MLFLOW_REGISTRY_URI secara eksplisit di sini
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
@@ -85,9 +79,9 @@ jobs:
         id: get_run_id
         run: |
           conda activate mlflow-ci-env
-          # PENTING: Set MLFLOW_TRACKING_URI dan MLFLOW_REGISTRY_URI secara eksplisit di sini
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
+          # Perintah 'search runs' seharusnya sekarang berfungsi dengan MLflow 1.25.0
           LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
@@ -101,7 +95,6 @@ jobs:
       - name: Build Docker Model
         run: |
           conda activate mlflow-ci-env
-          # PENTING: Set MLFLOW_TRACKING_URI dan MLFLOW_REGISTRY_URI secara eksplisit di sini
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
           mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
