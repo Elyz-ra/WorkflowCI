@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependencies (Conda Environment)
         run: |
-          conda env create -f MLProject/conda.yaml
+          conda env create -f MLProjects/conda.yaml
           conda activate mlflow-ci-env
           pip install mlflow==1.23.0 # Pastikan mlflow juga terinstal di environment proyek
 
@@ -50,7 +50,7 @@ jobs:
       - name: Run MLflow Project
         run: |
           conda activate mlflow-ci-env
-          mlflow run MLProject -e main
+          mlflow run MLProjects -e main
 
       - name: Get latest MLflow run_id
         id: get_run_id
