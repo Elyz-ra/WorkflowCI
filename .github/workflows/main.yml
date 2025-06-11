@@ -77,19 +77,26 @@ jobs:
       - name: Get latest MLflow run_id
         id: get_run_id
         run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          conda activate mlflow-ci-env
-          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
-          export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
+          echo "Mengeksekusi Python script untuk ambil run_id terbaru..."
+          python - <<EOF
+          import mlflow
 
-          echo "Menjalankan mlflow search runs..."
-          SEARCH_OUTPUT=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json)
-          echo "Hasil search:"
-          echo "$SEARCH_OUTPUT"
+          mlflow.set_tracking_uri("http://127.0.0.1:5001")
 
-          LATEST_RUN_ID=$(echo "$SEARCH_OUTPUT" | jq -r '.[0].info.run_id')
-          echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
-        shell: bash -l {0}
+          runs = mlflow.search_runs(
+              experiment_names=["Shipping Delay Prediction"],
+              order_by=["start_time DESC"],
+              max_results=1
+          )
+
+          if not runs.empty:
+              latest_run_id = runs.loc[0, "run_id"]
+              print(f"latest_run_id={latest_run_id}")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+                  fh.write(f"latest_run_id={latest_run_id}\n")
+          else:
+              print("No runs found.")
+          EOF
 
       - name: Install Python dependencies
         run: |
