@@ -12,9 +12,8 @@ jobs:
     environment: Production
     env:
       PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
-      # Kita set tracking URI di level job agar konsisten
-      # dan menunjuk ke file lokal, bukan server.
-      MLFLOW_TRACKING_URI: "file:./mlruns"
+      # [FIX] Gunakan path absolut agar tidak terpengaruh perubahan working directory
+      MLFLOW_TRACKING_URI: "file://${{ github.workspace }}/mlruns"
 
     steps:
       - name: Checkout Repository
