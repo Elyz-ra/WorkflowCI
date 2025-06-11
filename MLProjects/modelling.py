@@ -25,8 +25,7 @@ def train_and_log_model():
 
     mlflow.sklearn.autolog(
         log_input_examples=True,
-        log_model_signatures=True,
-        disable=False # Pastikan tidak ter-disable
+        log_model_signatures=True
     )
 
     model = XGBClassifier(
@@ -45,13 +44,12 @@ def train_and_log_model():
     acc = accuracy_score(y_test, preds)
     print(f"Akurasi model: {acc}")
 
-    print("Logging and registering model explicitly to ensure artifact is saved...")
+    print("Logging model explicitly to artifact store...")
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="model", # WAJIB 'model' agar cocok dengan langkah download di CI
-        registered_model_name="ShippingDelayXGBoostModel"
+        artifact_path="model" # Ini yang terpenting: menyimpan artefak ke folder 'model'
     )
-    print("Model explicitly logged and registered successfully.")
+    print("Model explicitly logged successfully.")
 
 
 if __name__ == "__main__":
