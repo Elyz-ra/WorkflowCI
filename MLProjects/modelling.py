@@ -43,14 +43,13 @@ def train_and_log_model():
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     print(f"Akurasi model: {acc}")
-
+    
     print("Logging model explicitly to artifact store...")
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="model" # Ini yang terpenting: menyimpan artefak ke folder 'model'
+        artifact_path="model"
     )
     print("Model explicitly logged successfully.")
-
 
 if __name__ == "__main__":
     train_and_log_model()

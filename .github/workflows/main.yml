@@ -20,6 +20,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          
+      - name: Clean MLflow Directory (Start Fresh)
+        run: |
+          echo "Removing old mlruns directory to ensure a clean start..."
+          rm -rf ./mlruns
+          echo "Directory removed."
 
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
