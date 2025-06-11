@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env: # Global environment variables for this job
-      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python # Untuk mengatasi isu protobuf
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python # For protobuf compatibility
 
     steps:
       - name: Checkout Repository
@@ -28,7 +28,7 @@ jobs:
           python-version: 3.9
           miniconda-version: "latest"
           auto-activate-base: false
-          channels: conda-forge,defaults # Pastikan 'conda-forge' ada untuk MLflow dan dependensinya
+          channels: conda-forge,defaults
 
       - name: Check Env
         run: |
@@ -39,14 +39,17 @@ jobs:
 
       - name: Install dependencies (Conda Environment)
         run: |
+          # Ensure a clean environment by removing it if it exists
+          conda env remove --name mlflow-ci-env || true
           conda env create -f MLProjects/conda.yaml
-          conda activate mlflow-ci-env # Aktifkan environment setelah dibuat
+          conda activate mlflow-ci-env
         shell: bash -l {0}
 
       - name: Start MLflow Tracking Server (Local)
         run: |
           conda activate mlflow-ci-env
-          mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
+          # Use 'python -m mlflow' for consistency
+          python -m mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
           
           echo "Waiting for MLflow Server to start..."
           timeout_seconds=60
@@ -69,7 +72,8 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-          mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
+          # Use 'python -m mlflow' for consistency
+          python -m mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
 
       - name: Get latest MLflow run_id
@@ -78,8 +82,9 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-          mlflow --version # Diagnostik: Cek versi MLflow yang aktif
-          LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
+          python -m mlflow --version # Diagnostic: Check active MLflow version
+          # Use 'python -m mlflow search runs' for reliability
+          LATEST_RUN_ID=$(python -m mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
 
@@ -94,7 +99,8 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-          mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
+          # Use 'python -m mlflow' for consistency
+          python -m mlflow models build-docker --model-uri "models:/ShippingDelayXGBoostModel/Production" -n shipping-delay-xgb-model:latest
         shell: bash -l {0}
 
       - name: Log in to Docker Hub
