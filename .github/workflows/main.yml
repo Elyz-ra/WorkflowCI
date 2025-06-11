@@ -12,7 +12,6 @@ jobs:
     environment: Production
     env:
       PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
-      # [FIX] Gunakan path absolut agar tidak terpengaruh perubahan working directory
       MLFLOW_TRACKING_URI: "file://${{ github.workspace }}/mlruns"
 
     steps:
@@ -20,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: Clean MLflow Directory (Start Fresh)
         run: |
           echo "Removing old mlruns directory to ensure a clean start..."
@@ -40,9 +39,6 @@ jobs:
           conda env create -f MLProjects/conda.yaml
         shell: bash -l {0}
 
-      # [DIHAPUS] Langkah 'Start MLflow Server' tidak diperlukan lagi.
-      # Ini adalah sumber utama masalah.
-
       - name: Run MLflow Project
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
@@ -51,9 +47,8 @@ jobs:
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
       
-      # [LANGKAH DEBUG] Kita intip isi folder mlruns untuk memastikan artefak dibuat
       - name: Inspect MLflow Run Directory
-        if: always() # Jalankan langkah ini meskipun langkah sebelumnya gagal
+        if: always()
         run: |
           echo "Inspecting content of ./mlruns ..."
           tree ./mlruns

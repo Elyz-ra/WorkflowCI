@@ -1,6 +1,0 @@
-artifact_location: mlflow-artifacts:/445811771242818053
-creation_time: 1749622929330
-experiment_id: '445811771242818053'
-last_update_time: 1749622929330
-lifecycle_stage: active
-name: Shipping Delay Prediction (Local Test)
