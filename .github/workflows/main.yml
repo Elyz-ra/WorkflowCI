@@ -76,9 +76,13 @@ jobs:
 
       - name: Get latest MLflow run_id
         id: get_run_id
+        shell: bash -l {0}
         run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate mlflow-ci-env
           echo "Mengeksekusi Python script untuk ambil run_id terbaru..."
           python - <<EOF
+          import os
           import mlflow
 
           mlflow.set_tracking_uri("http://127.0.0.1:5001")
