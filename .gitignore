@@ -1,0 +1,5 @@
+# MLflow experiment files and artifacts
+mlruns/
+mlartifacts/
+
+MLProjects/Dockerfile
