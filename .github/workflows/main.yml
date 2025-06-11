@@ -81,9 +81,13 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-          # Mengoreksi cara pemanggilan mlflow --version dan mlflow search runs
-          mlflow --version
-          LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
+
+          echo "Menjalankan mlflow search runs..."
+          SEARCH_OUTPUT=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json)
+          echo "Hasil search:"
+          echo "$SEARCH_OUTPUT"
+
+          LATEST_RUN_ID=$(echo "$SEARCH_OUTPUT" | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
 
@@ -94,6 +98,7 @@ jobs:
         shell: bash -l {0}
 
       - name: Upload to Google Drive
+        if: steps.get_run_id.outputs.latest_run_id != ''
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-run-artifacts-${{ github.run_id }}
