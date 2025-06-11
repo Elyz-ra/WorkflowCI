@@ -12,6 +12,9 @@ jobs:
     environment: Production
     env:
       PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
+      # Kita set tracking URI di level job agar konsisten
+      # dan menunjuk ke file lokal, bukan server.
+      MLFLOW_TRACKING_URI: "file:./mlruns"
 
     steps:
       - name: Checkout Repository
@@ -26,29 +29,29 @@ jobs:
 
       - name: Install dependencies and setup conda
         run: |
-          sudo apt-get install -y tree curl
+          sudo apt-get install -y tree
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda env remove --name mlflow-ci-env || true
           conda env create -f MLProjects/conda.yaml
         shell: bash -l {0}
 
-      - name: Start MLflow Server
-        run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          conda activate mlflow-ci-env
-          mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
-
-          echo "Menunggu MLflow Server dimulai..."
-          timeout 60s bash -c 'until curl -s http://127.0.0.1:5001 > /dev/null; do echo "MLflow Server belum siap. Menunggu 5 detik..."; sleep 5; done'
-        shell: bash -l {0}
+      # [DIHAPUS] Langkah 'Start MLflow Server' tidak diperlukan lagi.
+      # Ini adalah sumber utama masalah.
 
       - name: Run MLflow Project
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
-          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+          # MLFLOW_TRACKING_URI sudah di-set di env job, jadi akan otomatis terbaca.
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
+      
+      # [LANGKAH DEBUG] Kita intip isi folder mlruns untuk memastikan artefak dibuat
+      - name: Inspect MLflow Run Directory
+        if: always() # Jalankan langkah ini meskipun langkah sebelumnya gagal
+        run: |
+          echo "Inspecting content of ./mlruns ..."
+          tree ./mlruns
 
       - name: Get latest MLflow run_id
         id: get_run_id
@@ -60,7 +63,7 @@ jobs:
           import os
           import mlflow
 
-          mlflow.set_tracking_uri("http://127.0.0.1:5001")
+          # Tidak perlu set_tracking_uri lagi karena sudah di-set via environment variable
           runs = mlflow.search_runs(
               experiment_names=["Shipping Delay Prediction"],
               order_by=["attribute.start_time DESC"],
@@ -74,6 +77,7 @@ jobs:
                   fh.write(f"latest_run_id={run_id}\n")
           else:
               print("No runs found.")
+              # exit(1) # Kita bisa buat job gagal jika run tidak ditemukan
           EOF
 
       - name: Download MLflow artifact to folder
@@ -83,9 +87,7 @@ jobs:
           mkdir -p downloaded-artifact/
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
-          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
 
-          # [FIX] Ganti artifact-path menjadi 'model' sesuai output dari autolog
           mlflow artifacts download \
             --run-id ${{ steps.get_run_id.outputs.latest_run_id }} \
             --artifact-path model \
@@ -94,12 +96,9 @@ jobs:
           echo "Isi dari folder artefak yang diunduh:"
           tree downloaded-artifact/
 
-      # [REPLACEMENT] Ganti langkah 'Commit artifact' dengan 'Upload artifact'
       - name: Upload Model Artifact to GitHub Actions
         if: steps.get_run_id.outputs.latest_run_id != ''
         uses: actions/upload-artifact@v4
         with:
-          # Nama artefak yang akan muncul di halaman summary
           name: model-artifact-${{ steps.get_run_id.outputs.latest_run_id }}
-          # Path ke folder yang berisi artefak yang sudah diunduh
           path: downloaded-artifact/model/
