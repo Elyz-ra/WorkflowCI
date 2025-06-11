@@ -81,45 +81,9 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-
-          sudo apt-get update && sudo apt-get install -y jq || true
-          
-          LATEST_RUN_ID=""
-          echo "Mencoba mengambil MLflow run_id terbaru dengan percobaan ulang..."
-          timeout_seconds=90
-          start_time=$(date +%s)
-          
-          while [ -z "$LATEST_RUN_ID" ]; do
-            current_time=$(date +%s)
-            elapsed=$((current_time - start_time))
-            if [ "$elapsed" -ge "$timeout_seconds" ]; then
-              echo "Gagal mengambil MLflow run_id dalam $timeout_seconds detik."
-              exit 1
-            fi
-            
-            MLFLOW_SEARCH_OUTPUT=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --output-format json)
-            
-            echo "Output mentah mlflow search runs (percobaan ke-${elapsed}s):"
-            echo "$MLFLOW_SEARCH_OUTPUT"
-            
-            if [ "$(echo "$MLFLOW_SEARCH_OUTPUT" | jq 'length')" -gt 0 ]; then
-              RUN_ID_CANDIDATE=$(echo "$MLFLOW_SEARCH_OUTPUT" | jq -r '.[0].info.run_id // empty')
-              if [ -n "$RUN_ID_CANDIDATE" ]; then
-                LATEST_RUN_ID="$RUN_ID_CANDIDATE"
-                echo "Berhasil mengambil LATEST_RUN_ID: $LATEST_RUN_ID"
-                break
-              fi
-            fi
-            
-            echo "MLflow run_id belum ditemukan. Menunggu 5 detik sebelum mencoba lagi..."
-            sleep 5
-          done
-
-          if [ -z "$LATEST_RUN_ID" ]; then
-            echo "Error: LATEST_RUN_ID kosong setelah semua percobaan ulang. Tidak dapat melanjutkan."
-            exit 1
-          fi
-
+          # Mengoreksi cara pemanggilan mlflow --version dan mlflow search runs
+          mlflow --version
+          LATEST_RUN_ID=$(mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
           echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
         shell: bash -l {0}
 
