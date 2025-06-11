@@ -45,6 +45,7 @@ jobs:
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
+          # Mengoreksi cara pemanggilan mlflow server
           mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
           
           echo "Menunggu MLflow Server dimulai..."
@@ -69,6 +70,7 @@ jobs:
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
+          # Mengoreksi cara pemanggilan mlflow run
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
 
