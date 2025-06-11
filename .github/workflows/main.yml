@@ -14,40 +14,30 @@ jobs:
       PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
     steps:
-      - name: Set up job
-        run: echo "Setting up the job..."
-
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  
 
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - name: Check Env
+      - name: Install dependencies and setup conda
         run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          python --version
-          conda --version
-          pip --version
-        shell: bash -l {0}
-
-      - name: Install dependencies
-        run: |
+          sudo apt-get install -y tree curl
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda env remove --name mlflow-ci-env || true
           conda env create -f MLProjects/conda.yaml
-          conda activate mlflow-ci-env
         shell: bash -l {0}
 
-      - name: Set MLflow Tracking URI
+      - name: Start MLflow Server
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
-          # Mengoreksi cara pemanggilan mlflow server
           mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
-          
+
           echo "Menunggu MLflow Server dimulai..."
           timeout_seconds=60
           start_time=$(date +%s)
@@ -61,16 +51,13 @@ jobs:
             echo "MLflow Server belum siap. Menunggu 5 detik..."
             sleep 5
           done
-          echo "MLflow Server berjalan dan siap!"
         shell: bash -l {0}
 
-      - name: Run mlflow project
+      - name: Run MLflow Project
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
-          export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
-          # Mengoreksi cara pemanggilan mlflow run
           mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
 
@@ -80,13 +67,11 @@ jobs:
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
-          echo "Mengeksekusi Python script untuk ambil run_id terbaru..."
           python - <<EOF
           import os
           import mlflow
 
           mlflow.set_tracking_uri("http://127.0.0.1:5001")
-
           runs = mlflow.search_runs(
               experiment_names=["Shipping Delay Prediction"],
               order_by=["attribute.start_time DESC"],
@@ -94,51 +79,39 @@ jobs:
           )
 
           if not runs.empty:
-              latest_run_id = runs.loc[0, "run_id"]
-              print(f"latest_run_id={latest_run_id}")
+              run_id = runs.loc[0, "run_id"]
               with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
-                  fh.write(f"latest_run_id={latest_run_id}\n")
+                  fh.write(f"latest_run_id={run_id}\n")
           else:
               print("No runs found.")
           EOF
 
-      - name: Install Python dependencies
-        run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          conda activate mlflow-ci-env
-        shell: bash -l {0}
-
-      - name: List artifacts
-        run: ls -R mlruns
-
-      - name: Cek isi mlruns
-        run: |
-          find mlruns
-          tree mlruns || true
-
-      - name: Download artifact "xgboost_model"
+      - name: Download MLflow artifact to folder
         if: steps.get_run_id.outputs.latest_run_id != ''
         shell: bash -l {0}
         run: |
+          mkdir -p artifacts/
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
 
-          echo "Downloading artifact..."
           mlflow artifacts download \
             --run-id ${{ steps.get_run_id.outputs.latest_run_id }} \
             --artifact-path xgboost_model \
-            --dst-path downloaded_model
+            --dst-path artifacts/
 
-          echo "Downloaded files:"
-          ls -R downloaded_model
-
-      - name: Upload downloaded artifact
+      - name: Commit artifact to GitHub artifacts-storage branch
         if: steps.get_run_id.outputs.latest_run_id != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: mlflow-run-artifacts-${{ github.run_id }}
-          path: downloaded_model/
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
 
-      - name: Complete job
-        run: echo "Job completed successfully!"
+          git fetch origin
+          git checkout -B artifacts-storage
+
+          mkdir -p artifacts/model_${{ steps.get_run_id.outputs.latest_run_id }}
+          cp -r artifacts/xgboost_model/* artifacts/model_${{ steps.get_run_id.outputs.latest_run_id }}/
+
+          git add artifacts/
+          git commit -m "Add model artifact from run_id ${{ steps.get_run_id.outputs.latest_run_id }}" || echo "Nothing to commit"
+          git push origin artifacts-storage
