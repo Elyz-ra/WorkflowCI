@@ -116,12 +116,29 @@ jobs:
           find mlruns
           tree mlruns || true
 
-      - name: Upload to Google Drive
+      - name: Download artifact "xgboost_model"
+        if: steps.get_run_id.outputs.latest_run_id != ''
+        shell: bash -l {0}
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate mlflow-ci-env
+          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+
+          echo "Downloading artifact..."
+          mlflow artifacts download \
+            --run-id ${{ steps.get_run_id.outputs.latest_run_id }} \
+            --artifact-path xgboost_model \
+            --dst-path downloaded_model
+
+          echo "Downloaded files:"
+          ls -R downloaded_model
+
+      - name: Upload downloaded artifact
         if: steps.get_run_id.outputs.latest_run_id != ''
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-run-artifacts-${{ github.run_id }}
-          path: mlruns/${{ steps.get_run_id.outputs.latest_run_id }}/artifacts/
+          path: downloaded_model/
 
       - name: Complete job
         run: echo "Job completed successfully!"
