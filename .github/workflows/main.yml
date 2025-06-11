@@ -89,7 +89,7 @@ jobs:
 
           runs = mlflow.search_runs(
               experiment_names=["Shipping Delay Prediction"],
-              order_by=["start_time DESC"],
+              order_by=["attribute.start_time DESC"],
               max_results=1
           )
 
