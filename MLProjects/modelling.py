@@ -6,9 +6,6 @@ from sklearn.metrics import accuracy_score
 import os
 
 def train_and_log_model():
-    """
-    Melatih model XGBoost dan mencatatnya ke MLflow menggunakan autolog.
-    """
     print("Memulai proses pelatihan model...")
 
     data_path = "ecommerce_shipping_data_preprocessed"
@@ -29,11 +26,9 @@ def train_and_log_model():
     mlflow.sklearn.autolog(
         log_input_examples=True,
         log_model_signatures=True,
-        registered_model_name="ShippingDelayXGBoostModel"
+        disable=False # Pastikan tidak ter-disable
     )
 
-    # [FIX] Hapus blok 'with mlflow.start_run():'
-    # 'mlflow run' sudah menangani ini. autolog() akan otomatis log ke run yang aktif.
     model = XGBClassifier(
         n_estimators=100,
         learning_rate=0.1,
@@ -48,9 +43,16 @@ def train_and_log_model():
 
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
+    print(f"Akurasi model: {acc}")
 
-    print(f"Akurasi model (otomatis dicatat oleh autolog): {acc}")
-    print("Model berhasil dicatat dan didaftarkan ke MLflow melalui autolog.")
+    print("Logging and registering model explicitly to ensure artifact is saved...")
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        artifact_path="model", # WAJIB 'model' agar cocok dengan langkah download di CI
+        registered_model_name="ShippingDelayXGBoostModel"
+    )
+    print("Model explicitly logged and registered successfully.")
+
 
 if __name__ == "__main__":
     train_and_log_model()
