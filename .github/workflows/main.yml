@@ -15,9 +15,9 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  
+          fetch-depth: 0
 
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
@@ -39,18 +39,7 @@ jobs:
           mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
 
           echo "Menunggu MLflow Server dimulai..."
-          timeout_seconds=60
-          start_time=$(date +%s)
-          while ! curl -s http://127.0.0.1:5001 > /dev/null; do
-            current_time=$(date +%s)
-            elapsed=$((current_time - start_time))
-            if [ "$elapsed" -ge "$timeout_seconds" ]; then
-              echo "MLflow Server tidak dimulai dalam $timeout_seconds detik."
-              exit 1
-            fi
-            echo "MLflow Server belum siap. Menunggu 5 detik..."
-            sleep 5
-          done
+          timeout 60s bash -c 'until curl -s http://127.0.0.1:5001 > /dev/null; do echo "MLflow Server belum siap. Menunggu 5 detik..."; sleep 5; done'
         shell: bash -l {0}
 
       - name: Run MLflow Project
@@ -80,6 +69,7 @@ jobs:
 
           if not runs.empty:
               run_id = runs.loc[0, "run_id"]
+              print(f"Latest run_id found: {run_id}")
               with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
                   fh.write(f"latest_run_id={run_id}\n")
           else:
@@ -90,28 +80,26 @@ jobs:
         if: steps.get_run_id.outputs.latest_run_id != ''
         shell: bash -l {0}
         run: |
-          mkdir -p artifacts/
+          mkdir -p downloaded-artifact/
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
 
+          # [FIX] Ganti artifact-path menjadi 'model' sesuai output dari autolog
           mlflow artifacts download \
             --run-id ${{ steps.get_run_id.outputs.latest_run_id }} \
-            --artifact-path xgboost_model \
-            --dst-path artifacts/
+            --artifact-path model \
+            --dst-path downloaded-artifact/
 
-      - name: Commit artifact to GitHub artifacts-storage branch
+          echo "Isi dari folder artefak yang diunduh:"
+          tree downloaded-artifact/
+
+      # [REPLACEMENT] Ganti langkah 'Commit artifact' dengan 'Upload artifact'
+      - name: Upload Model Artifact to GitHub Actions
         if: steps.get_run_id.outputs.latest_run_id != ''
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-
-          git fetch origin
-          git checkout -B artifacts-storage
-
-          mkdir -p artifacts/model_${{ steps.get_run_id.outputs.latest_run_id }}
-          cp -r artifacts/xgboost_model/* artifacts/model_${{ steps.get_run_id.outputs.latest_run_id }}/
-
-          git add artifacts/
-          git commit -m "Add model artifact from run_id ${{ steps.get_run_id.outputs.latest_run_id }}" || echo "Nothing to commit"
-          git push origin artifacts-storage
+        uses: actions/upload-artifact@v4
+        with:
+          # Nama artefak yang akan muncul di halaman summary
+          name: model-artifact-${{ steps.get_run_id.outputs.latest_run_id }}
+          # Path ke folder yang berisi artefak yang sudah diunduh
+          path: downloaded-artifact/model/

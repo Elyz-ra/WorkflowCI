@@ -1,3 +1,5 @@
+# modelling.py (versi perbaikan)
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
@@ -7,8 +9,7 @@ import os
 
 def train_and_log_model():
     """
-    Melatih model XGBoost dan mencatatnya ke MLflow.
-    MLflow logging akan otomatis terhubung ke run yang dibuat oleh 'mlflow run'.
+    Melatih model XGBoost dan mencatatnya ke MLflow menggunakan autolog.
     """
     print("Memulai proses pelatihan model...")
 
@@ -28,35 +29,32 @@ def train_and_log_model():
         print(f"Error saat memuat dataset: {e}")
         exit(1)
 
-    # MLflow logging functions (log_metric, log_model, autolog)
-    # akan otomatis melampirkan ke run yang aktif yang dibuat oleh 'mlflow run'.
-    mlflow.sklearn.autolog()
-
-    model = XGBClassifier(
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=5,
-        use_label_encoder=False,
-        eval_metric='logloss',
-        random_state=42
+    # Cukup aktifkan autolog, tidak perlu log_metric dan log_model manual
+    # untuk parameter dasar dan model.
+    mlflow.sklearn.autolog(
+        log_input_examples=True,
+        log_model_signatures=True,
+        registered_model_name="ShippingDelayXGBoostModel" # Kita bisa daftarkan model langsung dari sini
     )
-    print("Melatih model XGBoost...")
-    model.fit(X_train, y_train)
-    print("Model berhasil dilatih.")
 
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
+    with mlflow.start_run(): # Praktik terbaik adalah membungkus training dalam run context
+        model = XGBClassifier(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=5,
+            use_label_encoder=False,
+            eval_metric='logloss',
+            random_state=42
+        )
+        print("Melatih model XGBoost...")
+        model.fit(X_train, y_train)
+        print("Model berhasil dilatih.")
 
-    mlflow.log_metric("accuracy", acc)
-    print(f"Akurasi model: {acc}")
+        preds = model.predict(X_test)
+        acc = accuracy_score(y_test, preds)
 
-    model_name = "ShippingDelayXGBoostModel"
-    mlflow.sklearn.log_model(
-        sk_model=model,
-        artifact_path="xgboost_model",
-        registered_model_name=model_name
-    )
-    print(f"Model '{model_name}' berhasil dicatat dan didaftarkan ke MLflow.")
+        print(f"Akurasi model (otomatis dicatat oleh autolog): {acc}")
+        print("Model berhasil dicatat dan didaftarkan ke MLflow melalui autolog.")
 
 if __name__ == "__main__":
     train_and_log_model()
