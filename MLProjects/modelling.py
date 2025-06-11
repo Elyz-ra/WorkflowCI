@@ -5,18 +5,12 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import os
 
-
 def train_and_log_model():
-    """
-    Melatih model XGBoost dan mencatatnya ke MLflow.
-    MLflow logging akan otomatis terhubung ke run yang dibuat oleh 'mlflow run'.
-    """
     print("Memulai proses pelatihan model...")
 
     data_path = "ecommerce_shipping_data_preprocessed"
     if not os.path.exists(data_path):
         print(f"Error: Direktori data '{data_path}' tidak ditemukan.")
-        print("Pastikan folder 'ecommerce_shipping_data_preprocessed' berisi file CSV Anda.")
         exit(1)
 
     try:
@@ -29,9 +23,10 @@ def train_and_log_model():
         print(f"Error saat memuat dataset: {e}")
         exit(1)
 
-    # MLflow logging functions (log_metric, log_model, autolog)
-    # akan otomatis melampirkan ke run yang aktif yang dibuat oleh 'mlflow run'.
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(
+        log_input_examples=True,
+        log_model_signatures=True
+    )
 
     model = XGBClassifier(
         n_estimators=100,
@@ -47,17 +42,14 @@ def train_and_log_model():
 
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
-
-    mlflow.log_metric("accuracy", acc)
     print(f"Akurasi model: {acc}")
-
-    model_name = "ShippingDelayXGBoostModel"
+    
+    print("Logging model explicitly to artifact store...")
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="xgboost_model",
-        registered_model_name=model_name
+        artifact_path="model"
     )
-    print(f"Model '{model_name}' berhasil dicatat dan didaftarkan ke MLflow.")
+    print("Model explicitly logged successfully.")
 
 if __name__ == "__main__":
     train_and_log_model()

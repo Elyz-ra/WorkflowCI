@@ -9,7 +9,7 @@ mlflow.set_tracking_uri("http://127.0.0.1:5001")
 client = MlflowClient()
 
 model_name = "ShippingDelayXGBoostModel"
-model_version = 1
+model_version = 2
 
 # Stage tujuan
 target_stage = "Production"
