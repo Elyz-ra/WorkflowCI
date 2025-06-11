@@ -5,6 +5,7 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score
 import os
 
+mlflow.set_tracking_uri("file:./mlruns") 
 
 def train_and_log_model():
     """
