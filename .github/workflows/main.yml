@@ -20,13 +20,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.12.7
+      - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12.7'
+          python-version: '3.9'
 
       - name: Check Env
         run: |
+          # Explicitly source conda.sh for each run step
+          source "$(conda info --base)/etc/profile.d/conda.sh"
           python --version
           conda --version
           pip --version
@@ -34,6 +36,8 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Explicitly source conda.sh for each run step
+          source "$(conda info --base)/etc/profile.d/conda.sh"
           conda env remove --name mlflow-ci-env || true
           conda env create -f MLProjects/conda.yaml
           conda activate mlflow-ci-env
@@ -41,6 +45,8 @@ jobs:
 
       - name: Set MLflow Tracking URI
         run: |
+          # Explicitly source conda.sh for each run step
+          source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
           python -m mlflow server --host 127.0.0.1 --port 5001 --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns &
           
@@ -62,14 +68,31 @@ jobs:
 
       - name: Run mlflow project
         run: |
+          # Explicitly source conda.sh for each run step
+          source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
           export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
           export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
           python -m mlflow run MLProjects -e main --experiment-name "Shipping Delay Prediction"
         shell: bash -l {0}
 
+      - name: Get latest MLflow run_id
+        id: get_run_id
+        run: |
+          # Explicitly source conda.sh for each run step
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate mlflow-ci-env
+          export MLFLOW_TRACKING_URI="http://127.0.0.1:5001"
+          export MLFLOW_REGISTRY_URI="http://127.0.0.1:5001"
+          python -m mlflow --version
+          LATEST_RUN_ID=$(python -m mlflow search runs --experiment-name "Shipping Delay Prediction" --max-results 1 --order-by "start_time DESC" --query "tags.mlflow.runName IS NOT NULL" --output-format json | jq -r '.[0].info.run_id')
+          echo "latest_run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
+        shell: bash -l {0}
+
       - name: Install Python dependencies
         run: |
+          # Explicitly source conda.sh for each run step
+          source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate mlflow-ci-env
         shell: bash -l {0}
 
